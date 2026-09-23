@@ -1,0 +1,6 @@
+{
+  "name": "StudentHub",
+  "description": "Free student learning and peer-to-peer Skill Swap platform featuring programming curriculum, sandboxed practice, assessments, and mentorship.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

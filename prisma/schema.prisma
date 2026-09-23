@@ -1,0 +1,192 @@
+// StudentHub Prisma Schema
+// PostgreSQL Relational Model
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  CONTENT_CREATOR
+  MODERATOR
+  ADMIN
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum SkillPairType {
+  TEACH
+  LEARN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(STUDENT)
+  isActive     Boolean  @default(true) @map("is_active")
+  isSuspended  Boolean  @default(false) @map("is_suspended")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  profile       UserProfile?
+  studentSkills StudentSkill[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime  @default(now()) @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  userAgent  String?   @map("user_agent")
+  ipAddress  String?   @map("ip_address")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model UserProfile {
+  userId             String    @id @map("user_id")
+  displayName        String    @map("display_name")
+  bio                String?
+  avatarUrl          String?   @map("avatar_url")
+  githubUrl          String?   @map("github_url")
+  linkedinUrl        String?   @map("linkedin_url")
+  timezone           String    @default("UTC")
+  languagePreference String    @default("English") @map("language_preference")
+  isDiscoverable     Boolean   @default(true) @map("is_discoverable")
+  streakCount        Int       @default(0) @map("streak_count")
+  lastActiveDate     DateTime? @map("last_active_date")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Skill {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  category  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  studentSkills StudentSkill[]
+
+  @@map("skills")
+}
+
+model StudentSkill {
+  id               String        @id @default(uuid())
+  userId           String        @map("user_id")
+  skillId          String        @map("skill_id")
+  type             SkillPairType
+  proficiencyLevel SkillLevel    @default(BEGINNER) @map("proficiency_level")
+  isVerified       Boolean       @default(false) @map("is_verified")
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId, type])
+  @@index([skillId, type, isVerified])
+  @@map("student_skills")
+}
+
+model Course {
+  id               String     @id @default(uuid())
+  title            String
+  slug             String     @unique
+  shortDescription String?    @map("short_description")
+  description      String
+  category         String     @default("Programming")
+  difficulty       SkillLevel @default(BEGINNER)
+  estimatedHours   Int        @default(10) @map("estimated_hours")
+  isPublished      Boolean    @default(false) @map("is_published")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  modules Module[]
+
+  @@index([slug])
+  @@index([isPublished])
+  @@map("courses")
+}
+
+model Module {
+  id          String     @id @default(uuid())
+  courseId    String     @map("course_id")
+  title       String
+  description String?
+  orderIndex  Int        @map("order_index")
+  level       SkillLevel @default(BEGINNER)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at")
+
+  course Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  topics Topic[]
+
+  @@index([courseId, orderIndex])
+  @@map("modules")
+}
+
+model Topic {
+  id               String   @id @default(uuid())
+  moduleId         String   @map("module_id")
+  title            String
+  slug             String   @unique
+  description      String?
+  orderIndex       Int      @map("order_index")
+  estimatedMinutes Int      @default(30) @map("estimated_minutes")
+  prerequisiteIds  String[] @default([]) @map("prerequisite_ids")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  module Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([moduleId, orderIndex])
+  @@index([slug])
+  @@map("topics")
+}
+
+model Lesson {
+  id                String   @id @default(uuid())
+  topicId           String   @map("topic_id")
+  title             String?
+  slug              String?
+  summary           String?
+  orderIndex        Int      @default(1) @map("order_index")
+  isPublished       Boolean  @default(true) @map("is_published")
+  markdownBody      String   @map("markdown_body")
+  syntaxGuide       String?  @map("syntax_guide")
+  commonMistakes    String?  @map("common_mistakes")
+  practicalUseCases String?  @map("practical_use_cases")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([topicId, orderIndex])
+  @@map("lessons")
+}
